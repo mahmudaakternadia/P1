@@ -5,26 +5,29 @@ import os
 BACKEND_URL = os.environ.get("BACKEND_URL", "http://localhost:8000/submit_report/")
 
 def submit_report(description, location, image):
-    files = {"image": image} if image is not None else {}
     data = {"description": description, "location": location}
+    files = {"image": open(image, "rb")} if image else None
     try:
         response = requests.post(BACKEND_URL, data=data, files=files)
+        if files:
+            files["image"].close()
         if response.ok:
             result = response.json()
-            summary = result["ai_result"]["summary"]
-            needs = ", ".join(result["ai_result"]["needs"])
-            urgency = result["ai_result"]["urgency"]
+            # Example: adjust this to match your actual backend response
+            summary = result.get("ai_result", {}).get("summary", "")
+            needs = ", ".join(result.get("ai_result", {}).get("needs", []))
+            urgency = result.get("ai_result", {}).get("urgency", "")
             return f"Summary: {summary}\nNeeds: {needs}\nUrgency: {urgency}"
         else:
-            return "Submission failed."
+            return f"Submission failed: {response.text}"
     except Exception as e:
         return f"Error: {e}"
 
 iface = gr.Interface(
     fn=submit_report,
     inputs=[
-        gr.Textbox(label="Describe the situation", lines=3, placeholder="e.g. Flood in the area, people trapped, need medical assistance."),
-        gr.Textbox(label="Location (address or GPS)", placeholder="e.g. 123 Main St, Springfield"),
+        gr.Textbox(label="Describe the situation", lines=3),
+        gr.Textbox(label="Location (address or GPS)"),
         gr.Image(label="Optional photo (damage, situation)", type="filepath")
     ],
     outputs=gr.Textbox(label="AI Summary & Needs", lines=4),
